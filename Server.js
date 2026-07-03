@@ -27,6 +27,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
+console.log("GEMINI_API_KEY =", process.env.GEMINI_API_KEY);
 
 /* ─── Validate required env vars on startup ─────────────────────── */
 if (!process.env.GEMINI_API_KEY) {
