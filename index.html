@@ -2704,11 +2704,18 @@ async function callAnthropicAPI() {
   const mimeType  = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
   try {
-    const response = await fetch('http://localhost:3001/api/analyze', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ image: base64, mimeType })
-    });
+    const response = await fetch('/api/analyze', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  
+  body: JSON.stringify({
+    image: base64,
+    mimeType
+  })
+});
+
 
     /* The backend returns JSON for both success and handled errors,
        but uses non-2xx status codes only for infrastructure problems. */
