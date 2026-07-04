@@ -2703,18 +2703,18 @@ async function callAnthropicAPI() {
   const mimeMatch = capturedDataUrl.match(/^data:(image\/\w+);/);
   const mimeType  = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-  try {
-    const response = await fetch('/api/analyze', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  
-  body: JSON.stringify({
-    image: base64,
-    mimeType
-  })
-});
+   try {
+    const response = await fetch('https://nuve-ai-beauty-production.up.railway.app/api/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image: base64,
+        mimeType
+      })
+    });
+
 
 
     /* The backend returns JSON for both success and handled errors,
