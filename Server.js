@@ -40,9 +40,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
   generationConfig: {
-    temperature: 0,
-    topP: 0.1
-  }
+  temperature: 0,
+  topP: 0.1,
+  topK: 1,
+  maxOutputTokens: 4096
+}
 });
 /* ─── CORS ───────────────────────────────────────────────────────── */
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -250,15 +252,83 @@ Do not reduce the score because of:
 - natural facial features
 
 Only reduce the score for real visible skin concerns.
+IMPORTANT
 
+Acne-prone is NOT a skin type.
 
+Never return "Acne-prone" as skinType.
+
+Acne should only appear inside the concerns list.
+
+If active acne is present together with oily T-zone and normal cheeks, classify the skin as Combination.
+
+If active acne is present with oiliness across the entire face, classify the skin as Oily.
+
+Always separate skin type from skin conditions.
+ACNE-PRONE CLASSIFICATION RULE
+
+Return "Acne-prone" ONLY if ALL of the following are true:
+
+• Multiple active inflamed acne lesions are clearly visible.
+• Acne is present across multiple facial regions.
+• Acne is the dominant visible skin characteristic.
+
+DO NOT classify Acne-prone because of:
+
+• Acne scars
+• Acne marks
+• Hyperpigmentation
+• One or two pimples
+• Enlarged pores
+• Occasional breakouts
+
+If uncertain between Combination and Acne-prone,
+always choose Combination.
+
+Only choose Acne-prone when confidence is at least 90%.
+
+The same image analysed multiple times should return the same skin type unless there is clear new visual evidence.
+══════════════════════════════
+SKIN TYPE CONSISTENCY
+══════════════════════════════
+
+Return exactly ONE skin type.
+
+The same image analysed multiple times should return the same skin type.
+
+Do not change skin type unless there is strong new visual evidence.
+
+ACNE-PRONE CLASSIFICATION
+
+Return "Acne-prone" ONLY if ALL conditions are true:
+
+• Multiple active inflamed acne lesions are clearly visible.
+• Acne appears across several facial regions.
+• Active acne is the dominant visible characteristic.
+• Confidence is at least 0.90.
+
+DO NOT classify Acne-prone because of:
+
+• Acne scars
+• Post-acne marks
+• Hyperpigmentation
+• One or two pimples
+• Enlarged pores
+• Oily T-zone
+• Occasional breakouts
+
+If uncertain between Combination and Acne-prone,
+always return Combination.
+
+Skin type represents the user's overall skin characteristics.
+Acne is a skin condition, not sufficient by itself to determine skin type.
 Step 7:
 Write a personalised narrative that summarizes the observations naturally without repeating the concern list.
 ══ IF ALL GATES PASS — return ONLY this JSON (no markdown fences, no prose) ══
 {
   "faceDetected": true,
   "imageQuality": "Good | Acceptable | Marginal",
-  "skinType": "Dry | Oily | Combination | Sensitive | Acne-prone | Normal",
+  "skinType": "Dry | Oily | Combination | Sensitive | Normal",
   "skinTone": "Fair | Light | Medium | Tan | Deep | Very Deep",
   "undertone": "Warm | Cool | Neutral",
   "overallScore": <integer 1-100 reflecting actual visible skin health>,
@@ -608,6 +678,78 @@ Reject only clearly invalid images.
 
 Accept any real human face where enough facial skin is visible for a reliable skin assessment.
 Accuracy is more important than always returning a result.
+══════════════
+SKIN TYPE CONSISTENCY
+══════════════
+
+Choose exactly ONE skin type.
+
+Do not change skin type between repeated analyses of the same image.
+
+Acne-prone is NOT a skin type simply because acne exists.
+
+Select Acne-prone ONLY when:
+
+• Multiple active inflamed acne lesions are clearly visible.
+• Acne is distributed across several facial regions.
+• Acne is the dominant visible skin characteristic.
+
+Do NOT classify Acne-prone because of:
+
+• Acne scars
+• Acne marks
+• Hyperpigmentation
+• One or two pimples
+• Occasional breakouts
+
+If oil is visible mainly on the T-zone while cheeks appear normal or dry,
+always classify as Combination.
+
+When uncertain between Combination and Acne-prone,
+always choose Combination.
+OVERALL SCORE CONSISTENCY
+
+The same image analysed multiple times should produce nearly identical results.
+
+overallScore should not vary by more than 2 points.
+
+Do not randomly change:
+
+• skinType
+• overallScore
+• detected concerns
+• confidence values
+══════════════════════════════
+FINAL SKIN TYPE VERIFICATION
+══════════════════════════════
+
+Before returning the JSON, verify the selected skin type one final time.
+
+If there is uncertainty between Combination and Acne-prone:
+
+DO NOT choose Acne-prone.
+
+Choose Combination unless multiple active inflamed acne lesions are clearly visible across several facial regions.
+
+Never classify Acne-prone because of:
+
+• acne scars
+
+• post-inflammatory pigmentation
+
+• one or two pimples
+
+• old acne marks
+
+• enlarged pores
+
+• oily T-zone
+
+Acne-prone should be selected ONLY when active acne is the dominant visible characteristic.
+
+The same image analysed multiple times must produce the same skin type.
+
+If uncertain, keep the previous classification rather than changing it.
 Return ONLY valid JSON.
 
 Do not include markdown.
@@ -663,9 +805,10 @@ const result = await model.generateContent({
     }
   ],
   generationConfig: {
-    temperature: 0,
-    topP: 0.1,
-    topK: 1
+  temperature: 0,
+  topP: 0.1,
+  topK: 1,
+  maxOutputTokens: 4096
   }
 });    raw = result.response.text().trim();
   } catch (geminiErr) {
@@ -725,6 +868,39 @@ const result = await model.generateContent({
   try {
     result = JSON.parse(clean); 
     console.log(result);
+    /* ---------- Normalize Gemini output ---------- */
+
+// Normalize skin type
+if (result.skinType === "Acne-prone") {
+
+  const concerns = Array.isArray(result.concerns)
+    ? result.concerns
+    : [];
+
+  const activeAcne = concerns.filter(c => {
+    const name = (c.name || "").toLowerCase();
+
+    return (
+      (name.includes("active acne") ||
+       name.includes("acne breakout") ||
+       name.includes("inflamed acne")) &&
+      (c.severity === "high" || c.severity === "med")
+    );
+  });
+
+  // Only keep Acne-prone if there are multiple active acne concerns
+  if (activeAcne.length < 2) {
+    result.skinType = "Combination";
+  }
+}
+
+// Normalize overall score
+if (typeof result.overallScore === "number") {
+  result.overallScore = Math.max(
+    1,
+    Math.min(100, Math.round(result.overallScore))
+  );
+}
   } catch (jsonErr) {
     console.error('[nuve] Gemini returned non-JSON:', clean.slice(0, 200));
     return res.status(502).json({
