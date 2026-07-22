@@ -96,107 +96,91 @@ GATE 1 — BLANK / NO CONTENT CHECK:
 Return this JSON ONLY if the image is completely blank, solid black, solid white, or contains zero visible content:
 {"__faceError":"The image appears to be blank or contains no visible content. Please upload a real photo of your face.","__errorType":"face"}
 
+
 GATE 2 — FACE PRESENCE & QUALITY CHECK
 
-A valid dermatology-quality facial image MUST satisfy ALL of the following conditions.
+A valid image must satisfy these conditions:
 
-Immediately STOP analysis and return the face-error JSON if ANY of these conditions are true:
+• Exactly one real human face is visible.
+• Enough facial skin is visible for analysis.
+Enough facial skin should be visible for reliable analysis.
+• Image should be reasonably sharp.
+Face should be reasonably visible and not extremely distant.
+• Face should not be extremely far away.
+• Image should be a real photograph.
 
-* No human face is visible.
-* More than one face is visible.
-* Only half of the face is visible.
-* The face is cropped by the image border.
-* The forehead is not fully visible.
-* The chin is not fully visible.
-* Either eye is partially or completely outside the frame.
-* The nose or mouth is cut off.
-* The face occupies less than 45% of the image height.
-* The face is too far from the camera.
-* The face is too close to the camera.
-* The person is looking away more than 20 degrees.
-* The face is heavily tilted.
-* The face is not centered.
-* The image is blurry or out of focus.
-* The lighting is too dark or too bright.
-* Strong shadows hide facial features.
-* The face is covered by hair, sunglasses, a mask, hands, or any object covering more than 30% of the face.
-* Heavy beauty filters or AI-generated images are detected.
-* The image quality is insufficient for reliable skin analysis.
-* You are NOT completely confident that a dermatology-quality facial assessment can be performed.
+ACCEPT:
 
-If ANY condition above fails:
+✔ Male
+✔ Female
+✔ Beard
+✔ Moustache
+✔ Hijab
+✔ Headscarf
+✔ Turban
+✔ Hair covered
+✔ Close-up selfie
+✔ Slight head tilt
+✔ Slightly off-center face
+✔ Normal glasses
+✓ Slightly cropped forehead
+✓ Slightly cropped chin
+✓ Slightly off-center face
+✓ Close-up selfie
 
-DO NOT estimate skin type.
+Reject ONLY if:
 
-DO NOT estimate acne.
 
-DO NOT estimate pigmentation.
 
-DO NOT estimate wrinkles.
+- No face
+- Multiple faces
+- Blank image
+- Completely black image
+- Completely white image
+- AI artwork or cartoon
+- Face occupies less than 20% of the image
+- Face is extremely blurry
+- More than 70% of facial skin is hidden
+- Eyes cannot be detected
+- Nose cannot be detected
+- Image contains only objects or scenery
 
-DO NOT estimate pores.
+DO NOT reject because of:
 
-DO NOT estimate hydration.
+- Hijab
+- Scarf
+- Turban
+- Beard
+- Mustache
+- Covered hair
+- Close-up selfie
+- Slight head tilt
+- Slightly off-center face
+- Different skin tones
+- Glasses
+- Smile
 
-DO NOT guess.
-CONSISTENCY RULE
 
-If the image is borderline between Oily and Combination:
+Accept if:
 
-- Prefer Combination.
-- Only classify as Oily when shine is clearly visible across the forehead, nose, cheeks and chin.
-- Never change between Oily and Combination unless there is strong visible evidence.
-- If evidence is uncertain, keep the previous classification instead of changing it.
+- Exactly one real human face is visible.
+- Eyes, nose, cheeks and enough facial skin are visible.
+- The image is reasonably sharp.
+- The face occupies at least 20% of the image.
+- The person may wear a hijab, scarf or turban.
+- The person may have a beard or moustache.
+- The selfie may be close-up.
+- The face may be slightly tilted.
+- The face may be slightly off-center.
 
-Return ONLY this JSON:
+Reject only if:
 
-{
-"__error": "Please retake your photo. Make sure your entire face is clearly visible, centered, close to the camera, in good lighting, with no obstructions, and that only one person appears in the image.",
-"__errorType": "face"
-}
-
-IMPORTANT:
-
-Never guess.
-
-Never infer missing facial regions.
-
-Never estimate skin condition from a partial face.
-
-If confidence is below 99%, return the face-error JSON instead of performing skin analysis.
-
-- The image contains ONLY objects, text, scenery, animals, food, screenshots — and NO person
-- NO human face is visible anywhere in the image
-- More than one distinct face is clearly present (two or more people)
-- The face is covered by a full mask, fully opaque filter, or object hiding more than 50% of facial features
-- The face is partially cropped.
-- Only half of the face is visible.
-- The forehead is missing.
-- The chin is missing.
-- One eye is completely outside the frame.
-- The face occupies less than 40% of the image.
-- The face is too far from the camera.async function clientSidePreFlight
-
-DO NOT reject for:
-- Glasses, sunglasses (unless completely blacked-out with no face visible)
-- Hijab, hat, or hair covering part of the face
-- Low or uneven lighting — analyse and note lower confidence
-- Slight blur or grain — analyse and note "Marginal" quality
-- Dark or deep skin tones — these are valid and must be analysed
-- Glasses, hijab or hair partially covering the face are acceptable.
-- The entire face must be visible.
-- The forehead, both eyes, nose, cheeks, mouth and chin must all be visible.
-- If any major facial region is cropped or outside the frame, reject the image.
-The face must occupy approximately 60% to 80% of the image height.
-
-If the face appears small, distant, or occupies less than approximately 60% of the image height, immediately return the face-error JSON.- If the face is too far away, reject the image.
-Do NOT estimate face size.
-
-Visually reject any image where the face appears distant or small.
-
-Be extremely strict.
-
-Prefer rejecting valid images rather than analysing distant faces.
+- No face is present.
+- Multiple faces are present.
+- The face is extremely small or very far away.
+- The face is mostly hidden.
+- The image is blank, black or white.
+- The image is extremely blurry.
 Face-error JSON format:
 {"__faceError":"<short specific reason>","__errorType":"face"}
 
@@ -252,6 +236,21 @@ Step 6:
 Generate a skin score only after evaluating all observations.
 
 Never choose a score first.
+The overallScore must be based ONLY on clearly visible evidence.
+
+If image quality is Good or Acceptable and only minor concerns are visible, the score should normally be between 75 and 95.
+
+Do not reduce the score because of:
+- hijab
+- scarf
+- turban
+- beard
+- moustache
+- dark skin tone
+- natural facial features
+
+Only reduce the score for real visible skin concerns.
+
 
 Step 7:
 Write a personalised narrative that summarizes the observations naturally without repeating the concern list.
@@ -395,8 +394,9 @@ The same image MUST always produce the same skin type.
 
 Only change skin type when strong visible evidence supports another category.
 
-If confidence is below 0.90, return the face-error JSON instead of guessing.
-
+If confidence is low, analyse only the concerns that are clearly visible.
+Never invent or guess skin conditions.
+If there is no reliable evidence for a concern, do not include it.
 SCORING RULES
 
 95–100
@@ -478,8 +478,7 @@ Never repeat the concern list.
 Never exaggerate findings.
 
 Never generate identical wording for different faces.
-If you are not at least 90% confident in the analysis, return the face-error JSON instead of performing skin analysis.
-Vary the writing naturally.
+If the image quality is sufficient and enough facial skin is visible, perform the analysis conservatively without guessing invisible details.Vary the writing naturally.
 - Never guess a skin concern if visual evidence is weak.
 - Every concern must be supported by visible evidence.
 - If confidence is below 0.60, do not include that concern.
@@ -493,48 +492,90 @@ Vary the writing naturally.
 - Never recommend ingredients that conflict with the detected skin type.
 - Keep routines simple and dermatologist-friendly.
 - Always recommend sunscreen in the morning routine.
-If the entire face is not clearly visible, immediately return the face-error JSON.
-
-Never analyse a partial face.
-
-Never estimate skin condition from a cropped image.
-
+If enough facial skin (forehead OR cheeks OR nose OR chin) is visible for reliable analysis, continue the analysis.
+Reject only when most of the face is hidden.
+Partial faces may be analysed if enough skin is visible for a reliable assessment.
+Do not guess hidden areas. Analyse only the visible skin regions.
  ══ SELF VERIFICATION ══
 
- Before returning the final JSON verify:
 
-- Was exactly one complete face visible?
-- Was the forehead fully visible?
-- Was the chin fully visible?
-- Were both eyes visible?
-- Was the face centered?
-- Was the face large enough?
-- Was image quality sufficient?
+Before returning the final JSON verify:
+
+- Is exactly one real human face visible?
+- Are the eyes, nose and cheeks clearly visible?
+- Is enough of the face visible to analyse the skin?
+- Does the face occupy at least 20% of the image?
+- Is the image reasonably sharp and well lit?
+- Is this a real photo (not AI art, cartoon or drawing)?
 
 If ANY answer is NO, return the face-error JSON.
 
-1. First verify that ALL face validation rules passed. If any validation fails, immediately return the face-error JSON without performing any skin analysis.
-2. Review every detected concern a second time.
-3. Remove any concern that is not clearly supported by visible evidence.
-4. Recalculate the overallScore after removing unsupported concerns.
-5. Ensure all confidence values are internally consistent.
-6. If two possible conclusions exist, choose the more conservative one.
-7. Never exaggerate the severity of any concern.
-8. Never return information that cannot be visually confirmed.
-9. The final JSON must represent only observations that are confidently visible in this specific image.
-10. Before returning the final JSON, verify that the detected skin type is supported by clear visual evidence. If the skin type cannot be determined with high confidence from clearly visible evidence, return the face-error JSON instead of guessing.
+ALLOW:
+
+✔ Male faces
+✔ Female faces
+✔ Beard
+✔ Moustache
+✔ Hijab
+✔ Headscarf
+✔ Turban
+✔ Hair covering
+✔ Close-up selfies
+✔ Slight head tilt
+✔ Slightly off-center faces
+✔ Normal glasses
+
+DO NOT require:
+
+✘ Forehead fully visible
+✘ Hair visible
+✘ Chin perfectly visible
+✘ Face perfectly centered
+✘ Perfect lighting
+✘ Perfect symmetry
+
+Reject ONLY if:
+
+• Image is blank
+• Image is black
+• Image is white
+• More than one face
+• No face
+• Face extremely small
+• Face heavily blurred
+• Face mostly hidden
+• Cartoon or AI artwork
+
+Perform skin analysis whenever enough facial skin is visible to make a reliable assessment.
+
 FINAL VALIDATION RULE
 
-This validation takes priority over every other instruction.
+Perform skin analysis whenever enough facial skin is visible.
 
-If there is ANY doubt that:
+Reject ONLY if:
 
-- the entire face is visible,
-- the face is close enough,
-- the image quality is sufficient,
-- or the skin cannot be analysed with at least 90% confidence,
+• no face
+• multiple faces
+• face occupies less than 20% of image
+• image is blank
+• image is completely black
+• image is completely white
+• image is extremely blurry
+• image is cartoon, painting or AI artwork
+• face is mostly hidden
+• facial skin cannot reasonably be observed
 
-DO NOT perform skin analysis.
+Do NOT reject because:
+
+• hijab
+• scarf
+• turban
+• beard
+• moustache
+• covered hair
+• close-up selfie
+• slightly tilted head
+• slightly off-center face
 
 Return ONLY:
 
@@ -547,8 +588,11 @@ Never guess.
 
 Reject uncertain images.
 
-False negatives are preferred over false positives.
-CONSISTENCY RULE
+Balanced validation is preferred.
+
+Reject only clearly invalid images.
+
+Accept all images that contain one sufficiently visible human face suitable for skin analysis.CONSISTENCY RULE
 
 If the same image is analysed multiple times, the following should remain nearly identical unless the image itself changes:
 
@@ -560,8 +604,9 @@ If the same image is analysed multiple times, the following should remain nearly
 Never produce significantly different results for the same image.
 When uncertain, choose to reject the image rather than guess.
 
-False negatives are preferred over false positives.
+Reject only clearly invalid images.
 
+Accept any real human face where enough facial skin is visible for a reliable skin assessment.
 Accuracy is more important than always returning a result.
 Return ONLY valid JSON.
 
